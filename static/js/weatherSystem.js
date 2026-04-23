@@ -121,7 +121,16 @@ class MouseParallax {
     constructor() {
         this.target = { x: 0, y: 0 };
         this.current = { x: 0, y: 0 };
-        this._bound = this._onMove.bind(this);
+        this._ticking = false;
+        this._bound = (e) => {
+            if (!this._ticking) {
+                requestAnimationFrame(() => {
+                    this._onMove(e);
+                    this._ticking = false;
+                });
+                this._ticking = true;
+            }
+        };
         window.addEventListener('mousemove', this._bound, { passive: true });
     }
 
@@ -162,7 +171,7 @@ class SkyRenderer {
         this.cloudOffsets = [0, 0, 0]; // far, mid, near
 
         // Stars: generate once
-        this.stars = this._generateStars(220);
+        this.stars = this._generateStars(120);
         this.starPhases = this.stars.map(() => Math.random() * Math.PI * 2);
 
         this.resize();
@@ -368,7 +377,7 @@ class RainEngine {
 
         this.resize();
         window.addEventListener('resize', () => this.resize(), { passive: true });
-        this._populateDrops(300);
+        this._populateDrops(150);
     }
 
     resize() {
@@ -609,9 +618,14 @@ class WeatherSystem {
     }
 
     _bindScroll() {
+        let ticking = false;
         window.addEventListener('scroll', () => {
-            if (this._autoMode) {
-                this.state.requestState(getScrollState());
+            if (this._autoMode && !ticking) {
+                requestAnimationFrame(() => {
+                    this.state.requestState(getScrollState());
+                    ticking = false;
+                });
+                ticking = true;
             }
         }, { passive: true });
     }
@@ -635,6 +649,11 @@ class WeatherSystem {
     }
 
     _loop(now) {
+        if (document.hidden) {
+            requestAnimationFrame(t => this._loop(t));
+            return;
+        }
+
         const dt = Math.min((now - this._lastTime) / 1000, 0.1); // cap at 100ms
         this._lastTime = now;
         this._elapsed += dt;

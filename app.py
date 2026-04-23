@@ -202,83 +202,102 @@ def predict():
         metadata_path = os.path.join(CACHE_DIR, f"{data_hash}_meta.json")
         model_path = os.path.join(CACHE_DIR, f"{data_hash}.joblib")
         
-        # Safe handling of concurrent requests
-        with training_lock:
-            use_cached_model = False
-            if os.path.exists(metadata_path) and os.path.exists(model_path):
-                try:
-                    with open(metadata_path, 'r') as f:
-                        metadata = json.load(f)
-                    if metadata.get('hash') == data_hash and metadata.get('model_version') == MODEL_VERSION:
-                        use_cached_model = True
-                except Exception as e:
-                    logger.warning(f"Failed to read cache metadata: {e}", extra={'event': 'cache_read_error'})
-                    
-            if use_cached_model:
-                logger.info("Cache hit: Loading model from disk.", extra={'event': 'cache_hit'})
-                with metrics_lock:
-                    system_metrics['cache_hits'] += 1
-                try:
-                    load_start = time.time()
-                    model = joblib.load(model_path)
-                    load_time = time.time() - load_start
-                    logger.info(f"Model loaded successfully.", extra={'event': 'model_load', 'duration': round(load_time, 4)})
-                    
-                    y_pred = model.predict(X)
-                    mse = mean_squared_error(y, y_pred)
-                    r2 = r2_score(y, y_pred)
-                except Exception as e:
-                    logger.error(f"Failed to load cached model: {e}", extra={'event': 'model_load_error'})
-                    use_cached_model = False # Fallback to retraining
-                    
-            if not use_cached_model:
-                logger.info("Cache miss: Retraining model synchronously.", extra={'event': 'cache_miss'})
-                with metrics_lock:
-                    system_metrics['model_trainings'] += 1
-                train_start = time.time()
-                # Train/Test Split for Validation
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        # Fast-path lockless cache read
+        use_cached_model = False
+        if os.path.exists(metadata_path) and os.path.exists(model_path):
+            try:
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                if metadata.get('hash') == data_hash and metadata.get('model_version') == MODEL_VERSION:
+                    use_cached_model = True
+            except Exception as e:
+                logger.warning(f"Failed to read cache metadata: {e}", extra={'event': 'cache_read_error'})
                 
-                # Train Advanced Model with Cross-Validated Ridge Regularization
-                model = make_pipeline(PolynomialFeatures(degree=2), RidgeCV(alphas=[0.1, 1.0, 10.0, 100.0]))
-                model.fit(X_train, y_train)
-                
-                # Validation Metrics
-                y_test_pred = model.predict(X_test)
-                test_mse = mean_squared_error(y_test, y_test_pred)
-                test_rmse = np.sqrt(test_mse)
-                test_mae = mean_absolute_error(y_test, y_test_pred)
-                test_r2 = r2_score(y_test, y_test_pred)
-                
-                logger.info(f"Model cross-validated. RMSE: {test_rmse:.2f}, MAE: {test_mae:.2f}, R2: {test_r2:.2f}")
-                
-                # Refit on entire dataset for optimal future predictions
-                model.fit(X, y)
-                train_time = time.time() - train_start
-                logger.info(f"Model trained from scratch.", extra={'event': 'model_train', 'duration': round(train_time, 4)})
+        if use_cached_model:
+            logger.info("Cache hit: Loading model from disk.", extra={'event': 'cache_hit'})
+            with metrics_lock:
+                system_metrics['cache_hits'] += 1
+            try:
+                load_start = time.time()
+                model = joblib.load(model_path)
+                load_time = time.time() - load_start
+                logger.info(f"Model loaded successfully.", extra={'event': 'model_load', 'duration': round(load_time, 4)})
                 
                 y_pred = model.predict(X)
                 mse = mean_squared_error(y, y_pred)
                 r2 = r2_score(y, y_pred)
+            except Exception as e:
+                logger.error(f"Failed to load cached model: {e}", extra={'event': 'model_load_error'})
+                use_cached_model = False # Fallback to retraining
                 
-                # Persist model and metadata safely
-                try:
-                    temp_model_path = model_path + '.tmp'
-                    joblib.dump(model, temp_model_path)
-                    os.replace(temp_model_path, model_path)
+        if not use_cached_model:
+            # Safe handling of concurrent training requests via Double-Checked Locking
+            with training_lock:
+                # Double-check cache inside lock to prevent redundant parallel training
+                if os.path.exists(model_path) and os.path.exists(metadata_path):
+                    try:
+                        with open(metadata_path, 'r') as f:
+                            metadata = json.load(f)
+                        if metadata.get('hash') == data_hash and metadata.get('model_version') == MODEL_VERSION:
+                            use_cached_model = True
+                            with metrics_lock:
+                                system_metrics['cache_hits'] += 1
+                            model = joblib.load(model_path)
+                            y_pred = model.predict(X)
+                            mse = mean_squared_error(y, y_pred)
+                            r2 = r2_score(y, y_pred)
+                            logger.info("Cache hit (delayed): Model loaded via secondary check.", extra={'event': 'cache_hit_delayed'})
+                    except Exception:
+                        pass
+
+                if not use_cached_model:
+                    logger.info("Cache miss: Retraining model synchronously.", extra={'event': 'cache_miss'})
+                    with metrics_lock:
+                        system_metrics['model_trainings'] += 1
+                    train_start = time.time()
+                    # Train/Test Split for Validation
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
                     
-                    metadata = {
-                        "hash": data_hash,
-                        "model_version": MODEL_VERSION,
-                        "timestamp": datetime.now().isoformat()
-                    }
-                    temp_metadata_path = metadata_path + '.tmp'
-                    with open(temp_metadata_path, 'w') as f:
-                        json.dump(metadata, f)
-                    os.replace(temp_metadata_path, metadata_path)
-                    logger.info("Model cached successfully.", extra={'event': 'model_cache_save'})
-                except Exception as e:
-                    logger.error(f"Failed to cache model: {e}", extra={'event': 'model_cache_error'})
+                    # Train Advanced Model with Cross-Validated Ridge Regularization
+                    model = make_pipeline(PolynomialFeatures(degree=2), RidgeCV(alphas=[0.1, 1.0, 10.0, 100.0]))
+                    model.fit(X_train, y_train)
+                    
+                    # Validation Metrics
+                    y_test_pred = model.predict(X_test)
+                    test_mse = mean_squared_error(y_test, y_test_pred)
+                    test_rmse = np.sqrt(test_mse)
+                    test_mae = mean_absolute_error(y_test, y_test_pred)
+                    test_r2 = r2_score(y_test, y_test_pred)
+                    
+                    logger.info(f"Model cross-validated. RMSE: {test_rmse:.2f}, MAE: {test_mae:.2f}, R2: {test_r2:.2f}")
+                    
+                    # Refit on entire dataset for optimal future predictions
+                    model.fit(X, y)
+                    train_time = time.time() - train_start
+                    logger.info(f"Model trained from scratch.", extra={'event': 'model_train', 'duration': round(train_time, 4)})
+                    
+                    y_pred = model.predict(X)
+                    mse = mean_squared_error(y, y_pred)
+                    r2 = r2_score(y, y_pred)
+                    
+                    # Persist model and metadata safely
+                    try:
+                        temp_model_path = model_path + '.tmp'
+                        joblib.dump(model, temp_model_path)
+                        os.replace(temp_model_path, model_path)
+                        
+                        metadata = {
+                            "hash": data_hash,
+                            "model_version": MODEL_VERSION,
+                            "timestamp": datetime.now().isoformat()
+                        }
+                        temp_metadata_path = metadata_path + '.tmp'
+                        with open(temp_metadata_path, 'w') as f:
+                            json.dump(metadata, f)
+                        os.replace(temp_metadata_path, metadata_path)
+                        logger.info("Model cached successfully.", extra={'event': 'model_cache_save'})
+                    except Exception as e:
+                        logger.error(f"Failed to cache model: {e}", extra={'event': 'model_cache_error'})
 
         # Post-Request Background Optimization Trigger (Hybrid Approach)
         def background_optimization_task(dataset_hash):

@@ -94,7 +94,12 @@
             }
         });
 
-        form.addEventListener('submit', () => {
+        form.addEventListener('submit', (e) => {
+            if (form.dataset.submitting) {
+                e.preventDefault();
+                return;
+            }
+            form.dataset.submitting = "true";
             submitBtn.disabled = true;
             loading.style.display = 'flex';
         });
