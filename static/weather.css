@@ -1,0 +1,209 @@
+/* ==========================================================
+   PREMIUM WEATHER SYSTEM — Styles
+   All color animation is done via JS Canvas / direct style writes.
+   CSS only handles static structure and glass UI.
+   ========================================================== */
+
+/* Force smooth scrolling on the html element */
+html { scroll-behavior: smooth; }
+
+body {
+    margin: 0;
+    overflow-x: hidden;
+    font-family: 'Inter', sans-serif;
+}
+
+/* ----- BACKGROUND CANVAS (handles ALL sky rendering) ----- */
+#weather-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -10;
+    pointer-events: none;
+    /* GPU compositing hint */
+    will-change: transform;
+}
+
+/* ----- RAIN CANVAS (on top of sky) ----- */
+#rain-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -5;
+    pointer-events: none;
+    will-change: opacity;
+    opacity: 0;
+    transition: opacity 2s ease; /* Slow, smooth rain fade-in/out */
+}
+
+/* ----- FLOATING WEATHER CONTROLS ----- */
+.weather-controls {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: rgba(10, 20, 40, 0.4);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 16px 18px;
+    border-radius: 16px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 150px;
+}
+
+.weather-controls h4 {
+    margin: 0 0 6px 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.weather-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 9px 14px;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    text-align: left;
+    transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+    will-change: background;
+}
+
+.weather-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
+}
+
+.weather-btn.active {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.5);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
+}
+
+/* ----- HERO LANDING SECTION ----- */
+.hero-section {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    text-align: center;
+    padding: 2rem;
+    position: relative;
+    z-index: 10;
+}
+
+.hero-section h1 {
+    font-size: clamp(2.5rem, 7vw, 5.5rem);
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -2px;
+    line-height: 1.1;
+    text-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+    margin: 0 0 1.2rem 0;
+}
+
+.hero-section p {
+    font-size: clamp(1rem, 2.5vw, 1.4rem);
+    color: rgba(255, 255, 255, 0.85);
+    max-width: 560px;
+    line-height: 1.7;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+    margin: 0 0 3rem 0;
+}
+
+.hero-scroll-cue {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    animation: scrollCue 2.4s ease-in-out infinite;
+}
+
+.hero-scroll-cue svg {
+    width: 24px;
+    height: 24px;
+    stroke: rgba(255, 255, 255, 0.6);
+}
+
+@keyframes scrollCue {
+    0%, 100% { transform: translateY(0); opacity: 0.6; }
+    50% { transform: translateY(10px); opacity: 1; }
+}
+
+/* ----- GLASSMORPHISM CARD PANEL ----- */
+.glass-panel {
+    background: rgba(255, 255, 255, 0.82) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    box-shadow: 0 16px 60px rgba(0, 0, 0, 0.15) !important;
+    position: relative;
+    z-index: 10;
+}
+
+/* Inner metric/chart cards — subtle glass */
+.metrics-card, .chart-card, .predictions-card {
+    background: rgba(255, 255, 255, 0.65) !important;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ----- TWINKLING STARS — pure CSS keyframes ----- */
+@keyframes twinkle {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.4); }
+}
+
+.star-dot {
+    position: absolute;
+    border-radius: 50%;
+    background: #fff;
+    will-change: opacity, transform;
+}
+
+/* ----- LIGHTNING FLASH ----- */
+@keyframes lightningFlash {
+    0% { opacity: 0; }
+    2% { opacity: 0.7; }
+    4% { opacity: 0; }
+    6% { opacity: 0.4; }
+    8% { opacity: 0; }
+    100% { opacity: 0; }
+}
+
+#lightning-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(200, 220, 255, 0.6);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    display: none;
+}
+
+#lightning-overlay.flash {
+    display: block;
+    animation: lightningFlash 0.8s ease-out forwards;
+}

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Results - Weather Data</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='weather.css') }}">
+</head>
+<body>
+    <!-- Sky Canvas (all rendering done here) -->
+    <canvas id="weather-canvas"></canvas>
+    <!-- Rain Canvas (on top) -->
+    <canvas id="rain-canvas"></canvas>
+    <!-- Lightning Flash Overlay -->
+    <div id="lightning-overlay"></div>
+
+    <!-- Weather Controls -->
+    <div class="weather-controls">
+        <h4>☁ Weather Engine</h4>
+        <button class="weather-btn active" data-state="AUTO">⟳ Auto (Scroll)</button>
+        <button class="weather-btn" data-state="SUNNY">☀️ Sunny</button>
+        <button class="weather-btn" data-state="SUNSET">🌇 Sunset</button>
+        <button class="weather-btn" data-state="NIGHT">🌙 Night</button>
+        <button class="weather-btn" data-state="RAIN">🌧 Rain</button>
+    </div>
+
+    <div class="container results-container glass-panel">
+        <header>
+            <h1>Analysis & Prediction Results</h1>
+        </header>
+
+        <div class="dashboard">
+            <div class="metrics-card">
+                <h3>Model Evaluation Metrics</h3>
+                <div class="metrics-grid">
+                    <div class="metric-item">
+                        <span class="metric-label">Mean Squared Error (MSE)</span>
+                        <span class="metric-value">{{ mse }}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">R-squared (R²)</span>
+                        <span class="metric-value">{{ r2 }}</span>
+                    </div>
+                </div>
+                <p class="metric-desc"><small>A lower MSE and an R² closer to 1.0 indicate a better fitting model. Note: Linear Regression is a basic baseline model for time series data.</small></p>
+            </div>
+
+            <div class="chart-card">
+                <h3>Temperature Trend & Forecast</h3>
+                <img src="data:image/png;base64,{{ plot_url }}" alt="Temperature Trend and Predictions Graph" class="responsive-img">
+            </div>
+
+            <div class="predictions-card">
+                <h3>7-Day Forecast</h3>
+                <table class="styled-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Predicted Temperature</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in future_data %}
+                        <tr>
+                            <td>{{ item.date }}</td>
+                            <td><strong>{{ item.temp }}</strong> °</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="{{ url_for('index') }}" class="btn secondary-btn">← Upload Another Dataset</a>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/weatherSystem.js') }}"></script>
+</body>
+</html>

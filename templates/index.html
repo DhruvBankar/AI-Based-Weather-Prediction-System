@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Data Analysis & Prediction</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='weather.css') }}">
+</head>
+<body>
+    <!-- Sky Canvas (all rendering done here) -->
+    <canvas id="weather-canvas"></canvas>
+    <!-- Rain Canvas (on top) -->
+    <canvas id="rain-canvas"></canvas>
+    <!-- Lightning Flash Overlay -->
+    <div id="lightning-overlay"></div>
+
+    <!-- Weather Controls -->
+    <div class="weather-controls">
+        <h4>☁ Weather Engine</h4>
+        <button class="weather-btn active" data-state="AUTO">⟳ Auto (Scroll)</button>
+        <button class="weather-btn" data-state="SUNNY">☀️ Sunny</button>
+        <button class="weather-btn" data-state="SUNSET">🌇 Sunset</button>
+        <button class="weather-btn" data-state="NIGHT">🌙 Night</button>
+        <button class="weather-btn" data-state="RAIN">🌧 Rain</button>
+    </div>
+
+    <!-- Hero Landing Section (creates scroll length for auto-transitions) -->
+    <section class="hero-section">
+        <h1>Predict the Elements.</h1>
+        <p>Upload historical weather data. Watch the sky respond as you scroll through a full day — from sunrise to midnight.</p>
+        <div class="hero-scroll-cue">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+            scroll
+        </div>
+    </section>
+    <div class="container glass-panel" style="margin-bottom: 50vh;">
+        <header>
+            <h1>Weather Data Analysis & Prediction System</h1>
+            <p>Upload a CSV file containing historical daily temperatures to analyze trends and predict the next 7 days.</p>
+        </header>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="flash-messages">
+              {% for message in messages %}
+                <div class="flash-message">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="upload-section">
+            <form action="{{ url_for('predict') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
+                <div class="file-drop-area">
+                    <span class="file-msg">Choose a CSV file or drag & drop here</span>
+                    <input class="file-input" type="file" name="file" accept=".csv" required>
+                </div>
+                <button type="submit" class="btn primary-btn" id="submitBtn">Analyze & Predict</button>
+            </form>
+            
+            <div id="loading" class="loading-container" style="display: none;">
+                <div class="spinner"></div>
+                <p>Processing data and training model... Please wait.</p>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>CSV Format Requirement:</h3>
+            <p>Your CSV file must contain the following columns:</p>
+            <ul>
+                <li><strong>Date</strong>: e.g., 2025-01-01</li>
+                <li><strong>Temperature</strong>: Numeric value</li>
+            </ul>
+            <p><small>Note: Missing temperatures will be handled automatically.</small></p>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const loading = document.getElementById('loading');
+        const submitBtn = document.getElementById('submitBtn');
+        const fileInput = document.querySelector('.file-input');
+        const fileMsg = document.querySelector('.file-msg');
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                fileMsg.textContent = fileInput.files[0].name;
+            } else {
+                fileMsg.textContent = 'Choose a CSV file or drag & drop here';
+            }
+        });
+
+        form.addEventListener('submit', () => {
+            submitBtn.disabled = true;
+            loading.style.display = 'flex';
+        });
+    </script>
+    <script src="{{ url_for('static', filename='js/weatherSystem.js') }}"></script>
+</body>
+</html>
